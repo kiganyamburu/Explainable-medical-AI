@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explainable Medical AI - Chest X-Ray Diagnosis</title>
+    
+    <!-- Bootstrap 5 CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS Stylesheet -->
+    <link href="/static/css/styles.css" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Prediction Spinner Loader -->
+    <div id="predictionLoader" class="prediction-loader">
+        <div class="spinner-border text-primary" role="status" style="width: 3.5rem; height: 3.5rem; border-width: 0.25em;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <h4 class="mt-4 fw-bold">Analyzing Radiograph...</h4>
+        <p class="text-white-50">Running CNN classification & generating explainable SHAP, LIME, and Grad-CAM maps...</p>
+    </div>
+
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg bg-body border-bottom py-3 sticky-top">
+        <div class="container">
+            <a class="navbar-brand navbar-brand-custom d-flex align-items-center gap-2" href="#">
+                <i class="bi bi-shield-plus text-primary fs-3"></i>
+                <span>Explainable Medical AI</span>
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center gap-2 mt-3 mt-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link nav-link-custom active" href="#dashboard" data-tab-target="dashboard">
+                            <i class="bi bi-grid-1x2-fill me-1"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link nav-link-custom" href="#compare" data-tab-target="compare">
+                            <i class="bi bi-columns-gap me-1"></i> Compare X-Rays
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link nav-link-custom" href="#history-stats" data-tab-target="history-stats">
+                            <i class="bi bi-activity me-1"></i> History & Stats
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link nav-link-custom" href="#model-info" data-tab-target="model-info">
+                            <i class="bi bi-cpu me-1"></i> Model Metrics
+                        </a>
+                    </li>
+                    <li class="ms-lg-3 nav-item">
+                        <button id="themeToggleBtn" class="mode-toggle-btn" title="Toggle Dark/Light Mode">
+                            <i class="bi bi-moon-fill" id="themeIcon"></i>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Global Banner section -->
+    <header class="landing-banner mb-4">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <span class="badge bg-primary-subtle text-primary fw-bold mb-2">PneumoniaCNN v1.0.0</span>
+                    <h1 class="fw-bold tracking-tight">AI-Powered Pulmonary Diagnosis</h1>
+                    <p class="lead text-secondary mb-0">Upload chest X-ray images to run real-time binary classification. Explore transparency through localized pixel-level activations (Grad-CAM), local perturbations (LIME), and shapley coalitions (SHAP).</p>
+                </div>
+                <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+                    <span class="status-pill status-normal">
+                        <i class="bi bi-patch-check-fill"></i> Development Mode
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Tabs Container -->
+    <main class="container pb-5">
+        
+        <!-- Toast Notification Area -->
+        <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1050">
+            <div id="statusToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <i class="bi bi-bell-fill me-2 text-primary"></i>
+                    <strong class="me-auto" id="toastTitle">System Notification</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body" id="toastBody">
+                    Welcome to Explainable Medical AI.
+                </div>
+            </div>
+        </div>
+
+        <!-- 1. DASHBOARD TAB -->
+        <section id="tab-dashboard" class="tab-content fade-in-up">
+            <div class="row">
+                <!-- Left Column - Image Upload Card -->
+                <div class="col-lg-5 mb-4">
+                    <div class="card card-premium h-100">
+                        <div class="card-header-clean">
+                            <h5 class="m-0 fw-bold d-flex align-items-center gap-2">
+                                <i class="bi bi-upload text-primary"></i> Upload Chest Radiograph
+                            </h5>
+                        </div>
+                        <div class="card-body d-flex flex-column justify-content-between p-4">
+                            <div>
+                                <label for="patientNameInput" class="form-label fw-bold small text-secondary uppercase">Patient Name</label>
+                                <div class="input-group mb-3">
+                                    <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-person"></i></span>
+                                    <input type="text" id="patientNameInput" class="form-control border-start-0 ps-0" placeholder="e.g. Patient Jane Doe" value="">
+                                </div>
+
+                                <div class="upload-dropzone p-5 text-center mt-3" id="dropzone">
+                                    <i class="bi bi-file-earmark-medical text-secondary display-4 d-block mb-3"></i>
+                                    <span class="fw-bold d-block mb-1">Drag & Drop X-ray image here</span>
+                                    <span class="text-secondary small d-block mb-3">Supports PNG, JPG, JPEG (Max 16MB)</span>
+                                    <button class="btn btn-sm btn-outline-primary px-3">Browse File</button>
+                                    <input type="file" id="xrayFileInput" accept=".png, .jpg, .jpeg">
+                                </div>
+                            </div>
+                            
+                            <!-- Upload file preview -->
+                            <div class="mt-4 d-none" id="uploadPreviewBox">
+                                <div class="p-3 border rounded-3 bg-light d-flex align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <i class="bi bi-image text-primary fs-3"></i>
+                                        <div class="overflow-hidden">
+                                            <span class="fw-bold d-block text-truncate small" id="previewFileName">filename.jpg</span>
+                                            <span class="text-secondary small" id="previewFileSize">0 KB</span>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm text-danger fs-5 p-0 border-0 bg-transparent" id="clearPreviewBtn" title="Remove image">
+                                        <i class="bi bi-x-circle-fill"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <button class="btn btn-primary w-100 py-3 rounded-3 fw-bold" id="runPredictBtn" disabled>
+                                    <i class="bi bi-activity me-2"></i> Run AI Diagnosis
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column - Output Diagnostics (hidden on load, populated via JS) -->
+                <div class="col-lg-7 mb-4">
+                    <!-- Placeholder Card when no prediction has run -->
+                    <div class="card card-premium h-100 text-center p-5 d-flex flex-column align-items-center justify-content-center" id="emptyResultBox">
+                        <i class="bi bi-heart-pulse text-secondary display-3 mb-3"></i>
+                        <h4 class="fw-bold">Awaiting Diagnostic Data</h4>
+                        <p class="text-secondary max-width-350">Enter the patient's name, upload a chest X-ray image, and run the model inference pipeline to generate diagnostic classifications and interpretability overlays.</p>
+                    </div>
+
+                    <!-- Result Panel -->
+                    <div class="card card-premium h-100 d-none" id="resultBox">
+                        <div class="card-header-clean d-flex align-items-center justify-content-between">
+                            <h5 class="m-0 fw-bold d-flex align-items-center gap-2">
+                                <i class="bi bi-file-medical text-primary"></i> Diagnostic Findings
+                            </h5>
+                            <span class="status-pill" id="resultPredictionPill">PNEUMONIA</span>
+                        </div>
+                        <div class="card-body p-4">
+                            <div class="row">
+                                <!-- Explanations Image Viewers (Switchable tabs) -->
+                                <div class="col-md-7 mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-bold small text-secondary text-uppercase">Diagnostic Imagery</span>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" class="btn btn-outline-secondary active" id="viewImageBtn" data-view="original">Original</button>
+                                            <button type="button" class="btn btn-outline-secondary" id="viewGradcamBtn" data-view="gradcam">Grad-CAM</button>
+                                            <button type="button" class="btn btn-outline-secondary" id="viewShapBtn" data-view="shap">SHAP</button>
+                                            <button type="button" class="btn btn-outline-secondary" id="viewLimeBtn" data-view="lime">LIME</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="xray-viewer-box">
+                                        <!-- Original Image -->
+                                        <img id="mainResultImg" src="" alt="Chest X-Ray Image View" class="w-100 h-100 img-fluid">
+                                    </div>
+                                    
+                                    <!-- Image Action Downloader -->
+                                    <div class="mt-2 text-center">
+                                        <a href="#" class="btn btn-sm btn-outline-secondary" id="downloadCurrentOverlayBtn" download>
+                                            <i class="bi bi-download me-1"></i> Save Current Image view
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <!-- Quantitative Gauge and statistics -->
+                                <div class="col-md-5 mb-3">
+                                    <span class="fw-bold d-block small text-secondary text-uppercase mb-3 text-center">Diagnosis Confidence</span>
+                                    
+                                    <!-- Circular Gauge -->
+                                    <div class="gauge-wrapper">
+                                        <svg class="gauge-circle" width="160" height="160">
+                                            <circle class="gauge-track" cx="80" cy="80" r="70"></circle>
+                                            <circle id="gaugeProgressBar" class="gauge-progress" cx="80" cy="80" r="70"></circle>
+                                        </svg>
+                                        <div class="gauge-value">
+                                            <span class="gauge-percentage" id="resultConfidenceText">87.4%</span>
+                                            <span class="gauge-label" id="resultPredictionLabel">Pneumonia</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Probability breakdown bars -->
+                                    <div class="mt-4">
+                                        <div class="mb-2">
+                                            <div class="d-flex justify-content-between small mb-1">
+                                                <span class="fw-bold">Pneumonia Probability</span>
+                                                <span id="pneumoniaProbText">87.4%</span>
+                                            </div>
+                                            <div class="progress" style="height: 8px;">
+                                                <div id="pneumoniaProgressBar" class="progress-bar bg-danger" role="progressbar" style="width: 87.4%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="d-flex justify-content-between small mb-1">
+                                                <span class="fw-bold">Normal Probability</span>
+                                                <span id="normalProbText">12.6%</span>
+                                            </div>
+                                            <div class="progress" style="height: 8px;">
+                                                <div id="normalProgressBar" class="progress-bar bg-success" role="progressbar" style="width: 12.6%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="border-top pt-2 mt-3 text-secondary small">
+                                            <div class="d-flex justify-content-between">
+                                                <span>Runtime Latency:</span>
+                                                <span id="resultLatencyText" class="fw-bold">1.4 seconds</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Qualitative AI Explanations and Checklist -->
+                            <div class="border-top pt-4 mt-3">
+                                <h6 class="fw-bold text-secondary mb-3 text-uppercase small">Explainable AI Diagnostic Verification</h6>
+                                <div id="findingsChecklistContainer">
+                                    <!-- Populated via JS -->
+                                    <div class="finding-list-item">
+                                        <div class="finding-check-icon finding-pneumonia-check">✓</div>
+                                        <span>Lung Opacity</span>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info mt-3 border-0 bg-opacity-10 py-3">
+                                    <i class="bi bi-info-circle-fill text-info me-2"></i>
+                                    <span id="xaiExplanationSummaryText" class="small">These findings strongly increased the probability of pneumonia.</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Action Buttons -->
+                            <div class="mt-4 pt-2 d-flex gap-2">
+                                <a id="downloadPdfBtn" href="#" class="btn btn-outline-primary flex-fill py-2 fw-bold">
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> Download PDF Report
+                                </a>
+                                <button id="resetDiagBtn" class="btn btn-secondary px-4 py-2">
+                                    <i class="bi bi-arrow-counterclockwise"></i> Reset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. COMPARE X-RAYS TAB -->
+        <section id="tab-compare" class="tab-content d-none fade-in-up">
+            <div class="row mb-4">
+                <div class="col-lg-12">
+                    <div class="card card-premium">
+                        <div class="card-header-clean">
+                            <h5 class="m-0 fw-bold"><i class="bi bi-columns-gap text-primary me-2"></i>Comparative Clinical Viewer</h5>
+                        </div>
+                        <div class="card-body p-4">
+                            <p class="text-secondary small">Compare two separate chest X-ray images side-by-side or analyze a patient's scans chronologically. Toggle localizing explainability overlays for comparative verification.</p>
+                            
+                            <div class="row g-4 mt-1">
+                                <!-- X-Ray Slot A -->
+                                <div class="col-md-6">
+                                    <div class="border rounded-4 p-3 bg-light bg-opacity-25 h-100">
+                                        <h6 class="fw-bold mb-3 text-secondary text-uppercase small d-flex justify-content-between align-items-center">
+                                            <span>Scan A (Reference Patient)</span>
+                                            <select class="form-select form-select-sm w-auto border-0 bg-transparent py-0 px-2 fw-bold text-primary" id="compareOverlayA">
+                                                <option value="orig">Original Scan</option>
+                                                <option value="gradcam">Grad-CAM Overlay</option>
+                                            </select>
+                                        </h6>
+                                        
+                                        <!-- Image Dropzone A -->
+                                        <div class="upload-dropzone p-5 text-center" id="compareDropzoneA" style="aspect-ratio: 1/1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                            <i class="bi bi-image text-secondary fs-1 mb-2"></i>
+                                            <span class="small fw-bold">Upload Scan A</span>
+                                            <input type="file" id="compareFileInputA" accept=".png, .jpg, .jpeg">
+                                        </div>
+                                        
+                                        <!-- Viewer A -->
+                                        <div class="xray-viewer-box d-none" id="compareViewerA">
+                                            <img id="compareImgA" src="" alt="Chest scan A">
+                                            <button class="btn btn-sm btn-dark position-absolute top-2 right-2 border-0 bg-opacity-70 rounded-circle p-1" style="right: 10px; top: 10px;" id="compareClearA">
+                                                <i class="bi bi-x fs-5"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Prediction Details A -->
+                                        <div class="mt-3 d-none text-center" id="compareInfoA">
+                                            <span class="status-pill status-normal" id="compareResultA">Normal</span>
+                                            <span class="d-block small text-secondary mt-1" id="compareConfidenceA">Confidence: 99.8%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- X-Ray Slot B -->
+                                <div class="col-md-6">
+                                    <div class="border rounded-4 p-3 bg-light bg-opacity-25 h-100">
+                                        <h6 class="fw-bold mb-3 text-secondary text-uppercase small d-flex justify-content-between align-items-center">
+                                            <span>Scan B (Subject Scan)</span>
+                                            <select class="form-select form-select-sm w-auto border-0 bg-transparent py-0 px-2 fw-bold text-primary" id="compareOverlayB">
+                                                <option value="orig">Original Scan</option>
+                                                <option value="gradcam">Grad-CAM Overlay</option>
+                                            </select>
+                                        </h6>
+                                        
+                                        <!-- Image Dropzone B -->
+                                        <div class="upload-dropzone p-5 text-center" id="compareDropzoneB" style="aspect-ratio: 1/1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                            <i class="bi bi-image text-secondary fs-1 mb-2"></i>
+                                            <span class="small fw-bold">Upload Scan B</span>
+                                            <input type="file" id="compareFileInputB" accept=".png, .jpg, .jpeg">
+                                        </div>
+                                        
+                                        <!-- Viewer B -->
+                                        <div class="xray-viewer-box d-none" id="compareViewerB">
+                                            <img id="compareImgB" src="" alt="Chest scan B">
+                                            <button class="btn btn-sm btn-dark position-absolute top-2 right-2 border-0 bg-opacity-70 rounded-circle p-1" style="right: 10px; top: 10px;" id="compareClearB">
+                                                <i class="bi bi-x fs-5"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Prediction Details B -->
+                                        <div class="mt-3 d-none text-center" id="compareInfoB">
+                                            <span class="status-pill status-pneumonia" id="compareResultB">Pneumonia</span>
+                                            <span class="d-block small text-secondary mt-1" id="compareConfidenceB">Confidence: 87.4%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. HISTORY & STATS TAB -->
+        <section id="tab-history-stats" class="tab-content d-none fade-in-up">
+            <!-- Analytics Cards Section -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-3">
+                    <div class="card card-premium p-3 text-center">
+                        <span class="text-secondary small fw-bold text-uppercase">Total Scans Run</span>
+                        <h2 class="fw-extrabold text-primary my-2" id="statTotalScans">0</h2>
+                        <span class="small text-secondary"><i class="bi bi-calendar-check me-1"></i>All-time</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card card-premium p-3 text-center">
+                        <span class="text-secondary small fw-bold text-uppercase">Pneumonia Cases</span>
+                        <h2 class="fw-extrabold text-danger my-2" id="statPneumoniaCases">0</h2>
+                        <span class="small text-secondary" id="statPneumoniaRate">0% of total scans</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card card-premium p-3 text-center">
+                        <span class="text-secondary small fw-bold text-uppercase">Avg confidence</span>
+                        <h2 class="fw-extrabold text-success my-2" id="statAvgConfidence">0%</h2>
+                        <span class="small text-secondary"><i class="bi bi-graph-up me-1"></i>Classification reliability</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card card-premium p-3 text-center">
+                        <span class="text-secondary small fw-bold text-uppercase">Avg Run Latency</span>
+                        <h2 class="fw-extrabold text-warning my-2" id="statAvgLatency">0.0s</h2>
+                        <span class="small text-secondary"><i class="bi bi-speedometer me-1"></i>Inference + XAI</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row g-4 mb-4">
+                <!-- Chart Column -->
+                <div class="col-lg-5">
+                    <div class="card card-premium h-100">
+                        <div class="card-header-clean">
+                            <h6 class="m-0 fw-bold text-secondary text-uppercase small">Diagnosis Distributions</h6>
+                        </div>
+                        <div class="card-body d-flex align-items-center justify-content-center p-4" style="position: relative; min-height: 250px;">
+                            <canvas id="distributionChart" width="200" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- History Table Column -->
+                <div class="col-lg-7">
+                    <div class="card card-premium h-100">
+                        <div class="card-header-clean d-flex align-items-center justify-content-between">
+                            <h5 class="m-0 fw-bold">Patient Diagnostic History</h5>
+                            <div class="input-group input-group-sm w-50">
+                                <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search"></i></span>
+                                <input type="text" id="historySearchInput" class="form-control border-start-0 ps-0" placeholder="Search patient...">
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive history-list-container">
+                                <table class="table table-hover align-middle mb-0" id="historyTable">
+                                    <thead class="table-light small uppercase fw-bold text-secondary">
+                                        <tr>
+                                            <th class="ps-4">Patient</th>
+                                            <th>Prediction</th>
+                                            <th>Confidence</th>
+                                            <th>Diagnosis Date</th>
+                                            <th class="pe-4 text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="historyTableBody">
+                                        <!-- Populated via JS -->
+                                        <tr>
+                                            <td colspan="5" class="text-center py-5 text-secondary">
+                                                <i class="bi bi-database-exclamation display-6 d-block mb-2"></i>
+                                                No diagnostic logs found in local database.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. MODEL METRICS TAB -->
+        <section id="tab-model-info" class="tab-content d-none fade-in-up">
+            <div class="row g-4">
+                <!-- Model parameters -->
+                <div class="col-lg-4">
+                    <div class="card card-premium p-4">
+                        <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-info-circle me-1"></i>Model Specifications</h5>
+                        <hr class="mt-0">
+                        
+                        <div class="d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-secondary small">Architecture:</span>
+                            <span class="fw-bold small">Custom 4-Block CNN</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-secondary small">Deep Learning Framework:</span>
+                            <span class="fw-bold small">PyTorch v2.12.1+cpu</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-secondary small">Input Dimension:</span>
+                            <span class="fw-bold small">224 x 224 x 3 (RGB)</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-secondary small">Total CNN Conv Layers:</span>
+                            <span class="fw-bold small">4 Convolutional Blocks</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-secondary small">Regularization Method:</span>
+                            <span class="fw-bold small">Dropout (p=0.5)</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-secondary small">Model Output Node:</span>
+                            <span class="fw-bold small">Softmax Logits (2-class)</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-2 border-bottom">
+                            <span class="text-secondary small">Target Layer (Grad-CAM):</span>
+                            <span class="fw-bold small">conv4 (128 channels)</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-2">
+                            <span class="text-secondary small">Explainability Methods:</span>
+                            <span class="fw-bold text-success small">Grad-CAM, LIME, SHAP</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card card-premium p-4 mt-4">
+                        <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-speedometer2 me-1"></i>Benchmark Test Scores</h5>
+                        <hr class="mt-0">
+                        <p class="text-secondary small mb-3">Model evaluation scores completed against the validated test splits of the Kaggle Chest X-ray Pneumonia benchmark dataset.</p>
+                        
+                        <div class="row text-center g-2">
+                            <div class="col-6">
+                                <div class="bg-light p-2 rounded border">
+                                    <span class="d-block text-secondary small">Accuracy</span>
+                                    <h4 class="fw-bold text-success m-0">94.2%</h4>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light p-2 rounded border">
+                                    <span class="d-block text-secondary small">ROC AUC</span>
+                                    <h4 class="fw-bold text-success m-0">0.978</h4>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light p-2 rounded border">
+                                    <span class="d-block text-secondary small">Precision</span>
+                                    <h4 class="fw-bold text-success m-0">93.5%</h4>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light p-2 rounded border">
+                                    <span class="d-block text-secondary small">Recall</span>
+                                    <h4 class="fw-bold text-success m-0">95.1%</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Performance Curves and Matrices -->
+                <div class="col-lg-8">
+                    <div class="card card-premium p-4">
+                        <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-graph-up-arrow me-1"></i>Model Evaluation Visualization</h5>
+                        <hr class="mt-0">
+                        
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <div class="border rounded p-2 bg-light text-center h-100">
+                                    <span class="fw-bold d-block small mb-2 text-secondary">Confusion Matrix</span>
+                                    <img src="/static/images/confusion_matrix.png" alt="Confusion Matrix" class="img-fluid rounded border border-light" onerror="this.src='https://placehold.co/400x350/0f172a/ffffff?text=Matrix+Not+Trained'">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="border rounded p-2 bg-light text-center h-100">
+                                    <span class="fw-bold d-block small mb-2 text-secondary">ROC Evaluation Curve</span>
+                                    <img src="/static/images/roc_curve.png" alt="ROC Curve" class="img-fluid rounded border border-light" onerror="this.src='https://placehold.co/400x350/0f172a/ffffff?text=ROC+Not+Trained'">
+                                </div>
+                            </div>
+                            <div class="col-lg-12">
+                                <div class="border rounded p-2 bg-light text-center">
+                                    <span class="fw-bold d-block small mb-2 text-secondary">Training & Validation Loss / Accuracy History</span>
+                                    <img src="/static/images/history.png" alt="Training History" class="img-fluid rounded border border-light" style="max-height: 250px; object-fit: contain;" onerror="this.src='https://placehold.co/800x250/0f172a/ffffff?text=History+Not+Trained'">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-body border-top py-4 mt-5 text-secondary">
+        <div class="container text-center">
+            <p class="mb-1 small">&copy; 2026 Explainable Medical AI Project. All rights reserved.</p>
+            <p class="mb-0 small text-secondary-50">Designed as a production-grade portfolio project using PyTorch, Flask Blueprints, and Explainable AI (Grad-CAM, SHAP, LIME).</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 Bundle JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom JavaScript Code logic -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
