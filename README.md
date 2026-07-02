@@ -2,6 +2,8 @@
 
 An advanced, production-grade clinical decision-support web application that classifies chest X-ray scans as **Normal** or **Pneumonia** and uses three Explainable AI (XAI) techniques (**Grad-CAM**, **LIME**, and **SHAP**) to explain *why* the neural network reached its diagnostic conclusion.
 
+![Explainable Medical AI Web Dashboard](app/static/images/dashboard_screenshot.png)
+
 This project is built using a clean, service-oriented architecture separating deep learning workflows, backend REST APIs, SQL database storage, and a responsive single-page web dashboard.
 
 ---
