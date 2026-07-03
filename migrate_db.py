@@ -17,8 +17,11 @@ def migrate():
         
     sqlite_uri = f"sqlite:///{sqlite_db_path}"
     
-    app_sqlite = create_app()
-    app_sqlite.config['SQLALCHEMY_DATABASE_URI'] = sqlite_uri
+    from config import active_config
+    class SQLiteMigrationConfig(active_config):
+        SQLALCHEMY_DATABASE_URI = sqlite_uri
+        
+    app_sqlite = create_app(SQLiteMigrationConfig)
     
     records_to_migrate = []
     with app_sqlite.app_context():
