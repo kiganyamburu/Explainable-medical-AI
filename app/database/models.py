@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from flask_sqlalchemy import SQLAlchemy
 
 # Initialize db instance (bound to app in factory)
@@ -23,7 +23,7 @@ class PredictionRecord(db.Model):
     lime_path = db.Column(db.String(255), nullable=True)     # LIME overlay path
     report_path = db.Column(db.String(255), nullable=True)   # PDF diagnostic report path
     
-    date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     
     def to_dict(self) -> dict:
         """Serializes the SQLAlchemy record object to a dictionary for API delivery."""

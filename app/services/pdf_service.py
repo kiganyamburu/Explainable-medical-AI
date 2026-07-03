@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import (
@@ -32,7 +32,7 @@ class PDFService:
         confidence = record_dict.get('confidence', 0.0)
         conf_normal = record_dict.get('confidence_normal', 0.0)
         conf_pneumonia = record_dict.get('confidence_pneumonia', 0.0)
-        date_str = record_dict.get('date', datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
+        date_str = record_dict.get('date', datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'))
         processing_time = record_dict.get('processing_time', 0.0)
         
         # Setup output PDF filename

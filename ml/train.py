@@ -1,5 +1,6 @@
 import os
 import sys
+from typing import Tuple
 import glob
 import time
 import argparse
@@ -9,6 +10,7 @@ matplotlib.use('Agg')  # Set non-interactive backend for server environments
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
@@ -261,7 +263,7 @@ def train(args) -> None:
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
     
     # Learning Rate Scheduling: Reduces learning rate if loss plateaus
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2, verbose=True)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
     
     # Early Stopping Variables
     best_val_loss = float('inf')

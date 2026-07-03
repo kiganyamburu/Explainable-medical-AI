@@ -33,15 +33,18 @@ document.addEventListener("DOMContentLoaded", () => {
         const savedTheme = localStorage.getItem("medical-ai-theme");
         if (savedTheme === "dark") {
             body.classList.add("dark-mode");
+            document.documentElement.setAttribute("data-bs-theme", "dark");
             themeIcon.className = "bi bi-sun-fill text-warning";
         } else {
             body.classList.remove("dark-mode");
+            document.documentElement.setAttribute("data-bs-theme", "light");
             themeIcon.className = "bi bi-moon-fill";
         }
 
         themeToggleBtn.addEventListener("click", () => {
             body.classList.toggle("dark-mode");
             const isDark = body.classList.contains("dark-mode");
+            document.documentElement.setAttribute("data-bs-theme", isDark ? "dark" : "light");
             localStorage.setItem("medical-ai-theme", isDark ? "dark" : "light");
             themeIcon.className = isDark ? "bi bi-sun-fill text-warning" : "bi bi-moon-fill";
             

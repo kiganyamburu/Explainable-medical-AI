@@ -8,7 +8,7 @@ This project is built using a clean, service-oriented architecture separating de
 
 ## Key Features
 
-- **Pneumonia Classification**: High-accuracy binary classifier trained on chest radiographs.
+- **Pneumonia Classification**: High-accuracy binary classifier trained on chest radiographs..
 - **Explainable AI (XAI) Suite**:
   - **Grad-CAM**: Visualizes activation density maps in the final convolutional layers.
   - **LIME (Local Interpretable Model-agnostic Explanations)**: Identifies contiguous superpixel regions supporting the prediction.

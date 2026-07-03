@@ -171,7 +171,7 @@ def get_history():
 @api_bp.route('/report/<int:record_id>', methods=['GET'])
 def serve_report(record_id: int):
     """Serves the generated clinical PDF report, recreating it on-the-fly if missing."""
-    record = PredictionRecord.query.get(record_id)
+    record = db.session.get(PredictionRecord, record_id)
     if not record:
         return jsonify({'error': 'Record not found'}), 404
         
@@ -199,7 +199,7 @@ def serve_report(record_id: int):
 @api_bp.route('/history/<int:record_id>', methods=['DELETE'])
 def delete_record(record_id: int):
     """Deletes a prediction record and purges all of its associated image and PDF files from disk."""
-    record = PredictionRecord.query.get(record_id)
+    record = db.session.get(PredictionRecord, record_id)
     if not record:
         return jsonify({'error': 'Record not found'}), 404
         

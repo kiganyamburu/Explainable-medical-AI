@@ -188,11 +188,54 @@ class ExplainableMedicalAITestCase(unittest.TestCase):
         self.assertEqual(del_response.status_code, 200)
         
         # Assert database entry was removed
-        self.assertIsNone(PredictionRecord.query.get(record_id))
+        self.assertIsNone(db.session.get(PredictionRecord, record_id))
         
         # Assert linked files were deleted from disk
         for path in dummy_files:
             self.assertFalse(os.path.exists(path))
+
+    def test_serve_report(self):
+        """Tests that GET /report/<id> successfully retrieves or regenerates the diagnostic PDF report."""
+        record = PredictionRecord(
+            patient_name="Report Download Test Patient",
+            filename="rep_test.jpg",
+            prediction="Normal",
+            confidence=0.99,
+            confidence_normal=0.99,
+            confidence_pneumonia=0.01,
+            processing_time=0.8,
+            heatmap_path="/static/heatmaps/rep_test_gradcam.jpg",
+            shap_path="/static/heatmaps/rep_test_shap.jpg",
+            lime_path="/static/heatmaps/rep_test_lime.jpg"
+        )
+        db.session.add(record)
+        db.session.commit()
+        record_id = record.id
+        
+        dummy_img_path = os.path.join(self.uploads_dir, "rep_test.jpg")
+        dummy_hm_path = os.path.join(self.heatmaps_dir, "rep_test_gradcam.jpg")
+        os.makedirs(self.uploads_dir, exist_ok=True)
+        os.makedirs(self.heatmaps_dir, exist_ok=True)
+        
+        from PIL import Image
+        img = Image.new('RGB', (224, 224), color='white')
+        img.save(dummy_img_path)
+        img.save(dummy_hm_path)
+        
+        response = self.client.get(f'/report/{record_id}')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers['Content-Type'], 'application/pdf')
+        self.assertTrue(response.headers['Content-Disposition'].startswith('attachment; filename='))
+        
+        pdf_path = os.path.join(self.reports_dir, f"report_{record_id}.pdf")
+        self.assertTrue(os.path.exists(pdf_path))
+        
+        # Close file stream to release handle under Windows
+        response.close()
+        
+        for path in (dummy_img_path, dummy_hm_path, pdf_path):
+            if os.path.exists(path):
+                os.remove(path)
 
     def test_gradcam_overlay_execution(self):
         """Tests that Grad-CAM triggers and calculates heatmaps on model representations successfully."""
