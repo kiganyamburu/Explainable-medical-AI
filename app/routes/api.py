@@ -67,7 +67,14 @@ def run_prediction():
         reports_dir=current_app.config['REPORT_FOLDER']
     )
     
-    patient_name = request.form.get('patient_name', '').strip()
+    # Extract patient name from form data or JSON parameters
+    patient_name = ""
+    if request.is_json:
+        patient_name = request.json.get('patient_name', '') if request.json else ''
+    else:
+        patient_name = request.form.get('patient_name', '')
+        
+    patient_name = patient_name.strip() if isinstance(patient_name, str) else ""
     if not patient_name:
         patient_name = "Anonymous Patient"
         
