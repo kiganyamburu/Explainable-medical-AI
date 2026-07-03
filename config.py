@@ -45,6 +45,14 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     """Production configuration."""
     DEBUG = False
+    
+    # Connection pooling configuration for production PostgreSQL databases
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_size": 5,
+        "max_overflow": 10,
+        "pool_recycle": 1800,
+        "pool_pre_ping": True
+    }
 
 class TestingConfig(Config):
     """Testing configuration."""
